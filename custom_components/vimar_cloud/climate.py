@@ -21,6 +21,7 @@ from .const import (
     CHANGE_OVER_HEATING,
     DOMAIN,
     HVAC_MODE_VIMAR_AUTO,
+    HVAC_MODE_VIMAR_MANUAL,
     HVAC_MODE_VIMAR_OFF,
     HVAC_MODE_VIMAR_TIMED_MANUAL,
     OUT_STATUS_COOL,
@@ -35,9 +36,10 @@ from .device_info import device_info_for_idsf
 
 _LOGGER = logging.getLogger(__name__)
 
-PRESET_SCHEDULE = "Programma"
-PRESET_MANUAL = "Manuale"
-PRESET_MODES = [PRESET_SCHEDULE, PRESET_MANUAL]
+PRESET_SCHEDULE = "Programma"     # Auto — segue il programma settimanale
+PRESET_MANUAL = "Manuale"         # Timed manual — override temporaneo
+PRESET_PERMANENT = "Permanente"   # Manual — override manuale permanente
+PRESET_MODES = [PRESET_SCHEDULE, PRESET_MANUAL, PRESET_PERMANENT]
 
 
 async def async_setup_entry(
@@ -48,14 +50,9 @@ async def async_setup_entry(
     """Set up Vimar climate entities from a config entry."""
     client: VimarCloudClient = hass.data[DOMAIN][entry.entry_id]
     entities = []
-    # _LOGGER.warning(
-    #     "VIMAR-DEBUG: climate setup called, %d devices in client", len(client.devices))
     for idsf, device in client.devices.items():
-        # _LOGGER.warning("VIMAR-DEBUG: climate sees idsf=%s type=%s name=%r",
-        #                 idsf, device.get("device_type"), device.get("name"))
         if device.get("device_type") == "thermostat":
             entities.append(VimarClimate(client, idsf, device, entry))
-    # _LOGGER.warning("VIMAR-DEBUG: climate adding %d entities", len(entities))
     async_add_entities(entities)
 
 
@@ -83,7 +80,7 @@ class VimarClimate(ClimateEntity):
     ) -> None:
         self._client = client
         self._idsf = idsf
-        self._attr_name = None  # Main feature: inherit the device name without duplicating it
+        self._attr_name = None  # eredita il nome del device senza duplicarlo
         self._attr_unique_id = f"{entry.entry_id}_{idsf}_climate"
         self._attr_device_info = device_info_for_idsf(client, idsf, entry)
 
@@ -102,9 +99,7 @@ class VimarClimate(ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        """Temperatura ambiente misurata dal sensore."""
-        value = self._client.get_state(
-            self._idsf, SFE_STATE_AMBIENT_TEMPERATURE)
+        value = self._client.get_state(self._idsf, SFE_STATE_AMBIENT_TEMPERATURE)
         try:
             return float(value) if value is not None else None
         except (ValueError, TypeError):
@@ -112,7 +107,6 @@ class VimarClimate(ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        """Setpoint temperatura impostato."""
         value = self._client.get_state(self._idsf, SFE_STATE_AMBIENT_SETPOINT)
         try:
             return float(value) if value is not None else None
@@ -123,26 +117,20 @@ class VimarClimate(ClimateEntity):
     def hvac_mode(self) -> HVACMode:
         """Modalità HVAC attiva.
 
-        Logica:
-        - SFE_State_HVACMode = "Off"  → HVACMode.OFF
-        - SFE_State_HVACMode = "Auto" o "Timed manual" + ChangeOverMode = "Heating" → HVACMode.HEAT
-        - SFE_State_HVACMode = "Auto" o "Timed manual" + ChangeOverMode = "Cooling" → HVACMode.COOL
+        - Off                           → HVACMode.OFF
+        - Auto / Timed manual / Manual  → HEAT o COOL in base a ChangeOverMode
         """
         mode = self._client.get_state(self._idsf, SFE_STATE_HVAC_MODE)
         if mode == HVAC_MODE_VIMAR_OFF:
             return HVACMode.OFF
-        change_over = self._client.get_state(
-            self._idsf, SFE_STATE_CHANGE_OVER_MODE)
+        change_over = self._client.get_state(self._idsf, SFE_STATE_CHANGE_OVER_MODE)
         if change_over == CHANGE_OVER_COOLING:
             return HVACMode.COOL
         return HVACMode.HEAT
 
     @property
     def hvac_action(self) -> HVACAction | None:
-        """Azione HVAC corrente (cosa sta fisicamente facendo il termostato).
-
-        Deriva da SFE_State_OutStatus: Off / Heat / Cool.
-        """
+        """Azione HVAC corrente derivata da SFE_State_OutStatus."""
         mode = self._client.get_state(self._idsf, SFE_STATE_HVAC_MODE)
         if mode == HVAC_MODE_VIMAR_OFF:
             return HVACAction.OFF
@@ -155,10 +143,17 @@ class VimarClimate(ClimateEntity):
 
     @property
     def preset_mode(self) -> str | None:
-        """Preset attivo: 'Programma' (settimanale) o 'Manuale' (temporaneo)."""
+        """Preset attivo.
+
+        - Auto          → Programma   (segue il programma settimanale)
+        - Timed manual  → Manuale     (override temporaneo)
+        - Manual        → Permanente  (override manuale permanente)
+        """
         mode = self._client.get_state(self._idsf, SFE_STATE_HVAC_MODE)
         if mode == HVAC_MODE_VIMAR_TIMED_MANUAL:
             return PRESET_MANUAL
+        if mode == HVAC_MODE_VIMAR_MANUAL:
+            return PRESET_PERMANENT
         return PRESET_SCHEDULE
 
     # ─── Comandi ─────────────────────────────────────────────────────────────
@@ -182,8 +177,8 @@ class VimarClimate(ClimateEntity):
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Imposta la temperatura target.
 
-        Se il termostato è in modalità 'Programma' (Auto), passa automaticamente
-        a 'Manuale temporaneo' (Timed manual) come fa l'app ufficiale Vimar.
+        Se il termostato è in modalità Programma (Auto), passa automaticamente
+        a Manuale temporaneo (Timed manual) come fa l'app ufficiale Vimar.
         """
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None:
@@ -193,10 +188,13 @@ class VimarClimate(ClimateEntity):
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Imposta il preset.
 
-        - 'Programma' → SFE_Cmd_HVACMode = "Auto"  (segue il programma settimanale)
-        - 'Manuale'   → SFE_Cmd_HVACMode = "Timed manual"
+        - Programma  → SFE_Cmd_HVACMode = "Auto"
+        - Manuale    → SFE_Cmd_HVACMode = "Timed manual"
+        - Permanente → SFE_Cmd_HVACMode = "Manual"
         """
         if preset_mode == PRESET_MANUAL:
             await self._client.set_climate_hvac_mode(self._idsf, HVAC_MODE_VIMAR_TIMED_MANUAL)
+        elif preset_mode == PRESET_PERMANENT:
+            await self._client.set_climate_hvac_mode(self._idsf, HVAC_MODE_VIMAR_MANUAL)
         else:
             await self._client.set_climate_hvac_mode(self._idsf, HVAC_MODE_VIMAR_AUTO)

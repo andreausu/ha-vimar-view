@@ -110,6 +110,7 @@ SFE_CMD_COOL_ABSENCE_SETPOINT = "SFE_Cmd_CoolAbsenceSetpoint"
 HVAC_MODE_VIMAR_OFF = "Off"
 HVAC_MODE_VIMAR_AUTO = "Auto"
 HVAC_MODE_VIMAR_TIMED_MANUAL = "Timed manual"
+HVAC_MODE_VIMAR_MANUAL = "Manual"  # manuale permanente
 
 # Change-over mode values (Vimar)
 CHANGE_OVER_HEATING = "Heating"
