@@ -4,12 +4,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
+
 from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import VimarCloudClient
+from .api import VimarCloudClient, VimarConnectionError
 from .const import DOMAIN, SFE_STATE_BRIGHTNESS, SFE_STATE_ONOFF
 from .device_info import device_info_for_idsf
 
@@ -59,11 +62,24 @@ class VimarLight(LightEntity):
     def is_on(self) -> bool:
         return self._client.get_state(self._idsf, SFE_STATE_ONOFF) == "On"
 
+    async def _async_light_command(self, command: str, *args: Any) -> None:
+        """Expose transport failures as recoverable HA service errors.
+
+        Home Assistant continue_on_error only handles HomeAssistantError.
+        Keep retries in the automation and never report success on failure.
+        """
+        try:
+            await getattr(self._client, command)(self._idsf, *args)
+        except (VimarConnectionError, aiohttp.ClientError, TimeoutError) as err:
+            raise HomeAssistantError(
+                f"Vimar light {self._idsf}: {command} failed ({err})"
+            ) from err
+
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._client.turn_on(self._idsf)
+        await self._async_light_command("turn_on")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._client.turn_off(self._idsf)
+        await self._async_light_command("turn_off")
 
 
 class VimarDimmer(VimarLight):
@@ -85,7 +101,7 @@ class VimarDimmer(VimarLight):
     async def async_turn_on(self, **kwargs: Any) -> None:
         if ATTR_BRIGHTNESS in kwargs:
             vimar_brightness = round(kwargs[ATTR_BRIGHTNESS] * 100 / 255)
-            await self._client.turn_on(self._idsf)
-            await self._client.set_brightness(self._idsf, vimar_brightness)
+            await self._async_light_command("turn_on")
+            await self._async_light_command("set_brightness", vimar_brightness)
         else:
-            await self._client.turn_on(self._idsf)
+            await self._async_light_command("turn_on")
