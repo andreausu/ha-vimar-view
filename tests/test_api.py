@@ -6,6 +6,7 @@ from custom_components.vimar_cloud.api import VimarCloudClient, VimarConnectionE
 class FakeWebSocket:
     def __init__(self):
         self.messages = []
+        self.closed = False
 
     async def send_str(self, value):
         self.messages.append(value)
@@ -14,6 +15,7 @@ class FakeWebSocket:
 def make_client():
     client = VimarCloudClient("u", "p", "duid", "")
     client._ws = FakeWebSocket()
+    client._session_token = "test-session"
     return client
 
 
