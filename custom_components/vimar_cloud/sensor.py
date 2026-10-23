@@ -122,8 +122,14 @@ class VimarEnergySensor(RestoreEntity, SensorEntity):
         last_state = await self.async_get_last_state()
         if last_state and last_state.state not in ("unknown", "unavailable", None):
             try:
-                self._accumulated_kwh = float(last_state.state)
-                _LOGGER.debug("Vimar: restored %s = %.4f kWh", self._attr_unique_id, self._accumulated_kwh)
+                restored = float(last_state.state)
+                # Sanity check: reset if value is clearly corrupted (>1 million kWh)
+                if math.isfinite(restored) and 0.0 <= restored <= 1_000_000.0:
+                    self._accumulated_kwh = restored
+                    _LOGGER.debug("Vimar: restored %s = %.4f kWh", self._attr_unique_id, self._accumulated_kwh)
+                else:
+                    _LOGGER.warning("Vimar: discarded corrupted restore value %s = %s kWh, resetting to 0", self._attr_unique_id, restored)
+                    self._accumulated_kwh = 0.0
             except (ValueError, TypeError):
                 self._accumulated_kwh = 0.0
 
@@ -307,7 +313,13 @@ class VimarAutomationEnergySensor(RestoreEntity, SensorEntity):
         last_state = await self.async_get_last_state()
         if last_state and last_state.state not in ("unknown", "unavailable", None):
             try:
-                self._accumulated_kwh = float(last_state.state)
+                restored = float(last_state.state)
+                if math.isfinite(restored) and 0.0 <= restored <= 1_000_000.0:
+                    self._accumulated_kwh = restored
+                    _LOGGER.debug("Vimar: restored %s = %.4f kWh", self._attr_unique_id, self._accumulated_kwh)
+                else:
+                    _LOGGER.warning("Vimar: discarded corrupted restore value %s = %s kWh, resetting to 0", self._attr_unique_id, restored)
+                    self._accumulated_kwh = 0.0
             except (ValueError, TypeError):
                 self._accumulated_kwh = 0.0
         self._last_ts = time.monotonic()
