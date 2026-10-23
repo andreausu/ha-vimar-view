@@ -359,6 +359,8 @@ class VimarCloudClient:
         return msgid
 
     async def _send_command(self, args: list, timeout: float | None = None) -> None:
+        if self._ws is None or self._ws.closed or not self._session_token:
+            raise VimarConnectionError("Vimar session not ready")
         await self._send_request(
             FUNC_DOACTION, args, wait_response=True, timeout=timeout
         )
@@ -760,6 +762,13 @@ class VimarCloudClient:
 
     # ─── Connection lifecycle ─────────────────────────────────────────────────
 
+    async def _attach_watchdog(self, ws, timeout: float=30.0) -> None:
+        """Close an incomplete session so the existing reconnect loop can recover."""
+        await asyncio.sleep(timeout)
+        if self._running and self._ws is ws and (not self._session_token):
+            _LOGGER.warning('Vimar: attach timeout after %.0fs; reconnecting', timeout)
+            await ws.close()
+
     async def connect(self) -> None:
         self._running = True
         await self._connect_and_run()
@@ -767,6 +776,7 @@ class VimarCloudClient:
     async def _connect_and_run(self) -> None:
         retry_delay = 5
         while self._running:
+            attach_watchdog = None
             try:
                 token = await self._get_token()
                 ws_url = f"{VIMAR_WS_URL}?duid={self._duid}&access_token={token}"
@@ -786,7 +796,8 @@ class VimarCloudClient:
                         self._ws = ws
                         self._msgid = 9
                         self._client_token = _random_client_token()
-                        retry_delay = 5
+                        self._session_token = None
+                        attach_watchdog = asyncio.create_task(self._attach_watchdog(ws))
 
                         self._keepalive_task = asyncio.create_task(self._keepalive_loop())
                         await self._attach()
@@ -808,6 +819,11 @@ class VimarCloudClient:
             except Exception as err:
                 _LOGGER.error("Vimar: connection error: %s", err)
             finally:
+                if attach_watchdog is not None:
+                    attach_watchdog.cancel()
+                    await asyncio.gather(attach_watchdog, return_exceptions=True)
+                if self._session_token:
+                    retry_delay = 5
                 self._ws = None
                 self._session_token = None
                 self._fail_pending_requests(VimarConnectionError("WebSocket disconnected"))
