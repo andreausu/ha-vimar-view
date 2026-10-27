@@ -88,7 +88,7 @@ Utilizza il protocollo WebSocket proprietario Vimar (`prod.vimar.cloud`) con aut
 - **Manuale** — override manuale temporaneo della temperatura (modo *Manuale a tempo*, durata impostata sul termostato)
 - **Permanente** — temperatura fissa finché non la cambi (modo *Manuale*)
 - **Riduzione** — mantiene il setpoint di riduzione (`number.<nome>_riscaldamento_riduzione`)
-- **Assenza** — mantiene il setpoint di assenza (`number.<nome>_riscaldamento_assenza`)
+- **Assenza** — mantiene il setpoint di assenza (`number.<nome>_riscaldamento_assenza`); nell'app View si chiama *Modalità Economy*
 - **Protezione** — mantiene solo la protezione antigelo (`number.<nome>_riscaldamento_protezione_antigelo`)
 
 > ℹ️ **Nota**: la modifica dei programmi orari settimanali non è supportata direttamente in HA (usare l'app Vimar). Il preset *Manuale* permette comunque di sovrascrivere temporaneamente la temperatura target.
@@ -286,7 +286,7 @@ Uses Vimar's proprietary WebSocket protocol (`prod.vimar.cloud`) with OAuth2 PKC
 - **Manuale** — temporary manual temperature override (*Timed manual* mode, duration set on the thermostat)
 - **Permanente** — fixed temperature until you change it (*Manual* mode)
 - **Riduzione** — holds the reduction setpoint (`number.<name>_heat_reduction`)
-- **Assenza** — holds the away setpoint (`number.<name>_heat_absence`)
+- **Assenza** — holds the away setpoint (`number.<name>_heat_absence`); the View app calls it *Modalità Economy*
 - **Protezione** — frost protection only (`number.<name>_heat_protection`)
 
 > ℹ️ **Note**: editing weekly schedules is not supported directly in HA (use the Vimar app). The *Manuale* preset allows a temporary override of the target temperature at any time.

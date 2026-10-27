@@ -43,7 +43,7 @@ PRESET_SCHEDULE = "Programma"     # Auto — segue il programma settimanale
 PRESET_MANUAL = "Manuale"         # Timed manual — override temporaneo
 PRESET_PERMANENT = "Permanente"   # Manual — override manuale permanente
 PRESET_REDUCTION = "Riduzione"    # Reduction — setpoint di riduzione
-PRESET_ABSENCE = "Assenza"        # Absence — setpoint di assenza
+PRESET_ABSENCE = "Assenza"        # Absence — setpoint di assenza ("Modalità Economy" nell'app View)
 PRESET_PROTECTION = "Protezione"  # Protection — solo antigelo
 
 # Preset HA ↔ modo di funzionamento Vimar (SFE_State/Cmd_HVACMode).
