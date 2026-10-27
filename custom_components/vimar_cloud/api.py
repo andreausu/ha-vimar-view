@@ -661,6 +661,7 @@ class VimarCloudClient:
                 sfetype = element.get("sfetype")
                 value = element.get("value")
                 if sfetype and value is not None:
+                    _LOGGER.debug("Vimar: status idsf=%s %s=%r", idsf, sfetype, value)
                     self.device_states[target_idsf][sfetype] = value
                     self.device_states[idsf][sfetype] = value
 
