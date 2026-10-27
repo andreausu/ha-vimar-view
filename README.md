@@ -94,6 +94,8 @@ Utilizza il protocollo WebSocket proprietario Vimar (`prod.vimar.cloud`) con aut
 > ℹ️ **Nota**: la modifica dei programmi orari settimanali non è supportata direttamente in HA (usare l'app Vimar). Il preset *Manuale* permette comunque di sovrascrivere temporaneamente la temperatura target.
 >
 > ⚠️ **Off** spegne completamente il termostato: nessuna regolazione, nemmeno l'antigelo. Per lasciare attiva la protezione antigelo usa il preset *Protezione*. Con il termostato spento il preset è vuoto.
+>
+> 🌡️ Cambiare la temperatura target mentre è attivo *Riduzione*, *Assenza* o *Protezione* aggiorna il setpoint di quel modo (le stesse entità `number.*`), così il valore resta anche dopo un cambio di modo.
 
 #### Per ogni Scenario
 | Entità | Tipo | Descrizione |
@@ -292,6 +294,8 @@ Uses Vimar's proprietary WebSocket protocol (`prod.vimar.cloud`) with OAuth2 PKC
 > ℹ️ **Note**: editing weekly schedules is not supported directly in HA (use the Vimar app). The *Manuale* preset allows a temporary override of the target temperature at any time.
 >
 > ⚠️ **Off** switches the thermostat completely off: no regulation at all, not even frost protection. To keep frost protection active use the *Protezione* preset. While the thermostat is off the preset is empty.
+>
+> 🌡️ Changing the target temperature while *Riduzione*, *Assenza* or *Protezione* is active updates that mode's setpoint (the same `number.*` entities), so the value survives mode changes.
 
 #### For each Scene Activator
 | Entity | Type | Description |
